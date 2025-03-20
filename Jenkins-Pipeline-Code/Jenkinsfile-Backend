@@ -5,7 +5,7 @@ pipeline {
         nodejs 'nodejs'
     }
     environment  {
-        SCANNER_HOME=tool 'sonar-scanner'
+        SCANNER_HOME = tool 'sonar-scanner'
         AWS_ACCOUNT_ID = credentials('ACCOUNT_ID')
         AWS_ECR_REPO_NAME = credentials('ECR_REPO2')
         AWS_DEFAULT_REGION = 'us-east-1'
@@ -26,12 +26,14 @@ pipeline {
             steps {
                 dir('Application-Code/backend') {
                     withSonarQubeEnv('sonar-server') {
-                        sh ''' $SCANNER_HOME/bin/sonar-scanner \
+                        sh '''
+                        ${SCANNER_HOME}/bin/sonar-scanner \
                         -Dsonar.projectName=three-tier-backend \
                         -Dsonar.projectKey=three-tier-backend \
                         -Dsonar.sources=. \
                         -Dsonar.host.url=http://54.173.249.126:9000 \
-                        -Dsonar.login=1201535f0c2e4e8cce16a8b56912c278669b07c5'''
+                        -Dsonar.login=1201535f0c2e4e8cce16a8b56912c278669b07c5
+                        '''
                     }
                 }
             }
@@ -54,7 +56,7 @@ pipeline {
         stage('Trivy File Scan') {
             steps {
                 dir('Application-Code/backend') {
-                    sh 'trivy fs . > trivyfs.txt'
+                    sh 'trivy fs . --format table --output trivyfs.txt'
                 }
             }
         }
@@ -62,9 +64,11 @@ pipeline {
             steps {
                 script {
                     dir('Application-Code/backend') {
-                            sh 'docker system prune -f'
-                            sh 'docker container prune -f'
-                            sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
+                        sh '''
+                        docker system prune -f
+                        docker container prune -f
+                        docker build -t ${AWS_ECR_REPO_NAME} .
+                        '''
                     }
                 }
             }
@@ -72,17 +76,21 @@ pipeline {
         stage("ECR Image Pushing") {
             steps {
                 script {
-                        sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}'
-                        sh 'docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
-                        sh 'docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
+                    sh '''
+                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                    docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+                    docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+                    '''
                 }
             }
         }
-        //stage("TRIVY Image Scan") {
-            //steps {
-                //sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt' 
-            //}
-        //}
+        stage("TRIVY Image Scan") {
+            steps {
+                script {
+                    sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} --format table --output trivyimage.txt'
+                }
+            }
+        }
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Ramakrishnaragi/fpjt.git'
@@ -97,14 +105,12 @@ pipeline {
                 dir('Kubernetes-Manifests-file/Backend') {
                     withCredentials([string(credentialsId: 'github', variable: 'git_token')]) {
                         sh '''
-                            git config user.email "ramakrishnaragi1999@gmail.com"
-                            git config user.name "Ramakrishnaragi"
-                            BUILD_NUMBER=${BUILD_NUMBER}
-                            echo $BUILD_NUMBER
-                            sed -i "s#image:.*#image: $REPOSITORY_URI$AWS_ECR_REPO_NAME:$BUILD_NUMBER#g" deployment.yaml
-                            git add .
-                            git commit -m "Update deployment Image to version \${BUILD_NUMBER}"
-                            git push https://${git_token}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                        git config user.email "ramakrishnaragi1999@gmail.com"
+                        git config user.name "Ramakrishnaragi"
+                        sed -i "s#image:.*#image: ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}#g" deployment.yaml
+                        git add .
+                        git commit -m "Update deployment Image to version ${BUILD_NUMBER}"
+                        git push https://${git_token}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                         '''
                     }
                 }
