@@ -31,7 +31,7 @@ pipeline {
                         -Dsonar.projectKey=three-tier-backend \
                         -Dsonar.sources=. \
                         -Dsonar.host.url=http://54.173.249.126:9000 \
-                        -Dsonar.login=squ_427f74f9b3d6f5e8c8ce3faf811072eb4b83e398'''
+                        -Dsonar.login=1201535f0c2e4e8cce16a8b56912c278669b07c5'''
                     }
                 }
             }
@@ -78,11 +78,11 @@ pipeline {
                 }
             }
         }
-        stage("TRIVY Image Scan") {
-            steps {
-                sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt' 
-            }
-        }
+        //stage("TRIVY Image Scan") {
+            //steps {
+                //sh 'trivy image ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER} > trivyimage.txt' 
+            //}
+        //}
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Ramakrishnaragi/fpjt.git'
